@@ -1,0 +1,40 @@
+# Rakefile for building pico-sdk in 4 configurations
+require 'rake'
+require 'fileutils'
+
+# Path to the pico-sdk sources (no modifications needed there!)
+SDK_SRC = ENV['PICO_SDK_PATH'] || File.expand_path('../pico-sdk', __dir__)
+BUILD_BASE = File.join(__dir__, 'build')
+
+BOARDS = { 'pico' => 'pico', 'pico2' => 'pico2' }
+TYPES  = { 'debug' => 'Debug', 'release' => 'Release' }
+
+BOARDS.each do |bkey, bval|
+  TYPES.each do |tkey, tval|
+    bd = File.join(BUILD_BASE, bkey, tkey)
+
+    namespace bkey do
+      desc "Build pico-sdk for #{bkey} / #{tkey}"
+      task tkey do
+        puts "\n→ Configuring & building SDK for #{bkey}/#{tkey}\n"
+        FileUtils.mkdir_p(bd)
+        sh [
+          'cmake',
+          "-S", SDK_SRC,
+          "-B", bd,
+          "-DPICO_BOARD=#{bval}",
+          "-DCMAKE_BUILD_TYPE=#{tval}",
+          "-DPICOTOOL_FETCH_FROM_GIT_PATH=~/src/pico/picotool" #/build/picotool"
+        ].join(' ')
+        sh "cmake --build #{bd}"
+      end
+    end
+
+    # flat alias: pico-debug, pico-release, etc.
+    task "#{bkey}-#{tkey}" => ["#{bkey}:#{tkey}"]
+  end
+end
+
+desc "Build all SDK targets"
+task :all => BOARDS.keys.flat_map { |b| TYPES.keys.map { |t| "#{b}-#{t}" } }
+task :default => :all
